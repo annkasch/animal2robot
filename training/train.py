@@ -24,7 +24,8 @@ def main():
 
     spec = get_spec(cfg["dataset"])
     dataset_dir = Path(cfg["dataset_root"]) / spec.name
-    ensure_present(dataset_dir, spec)
+    species = cfg.get("species") or spec.default_species
+    ensure_present(dataset_dir, spec, species=species)
 
     from rfdetr import RFDETRKeypointPreview
 

@@ -17,6 +17,12 @@ class DatasetSpec:
     roboflow_workspace: str = ""
     roboflow_project: str = ""
     roboflow_version: int = 0
+    # Maps species name → COCO category ID.
+    # Empty for YOLO datasets (already single-species or pre-filtered).
+    # Verify IDs against the actual annotation JSON before use.
+    species_map: dict[str, int] = field(default_factory=dict)
+    # Species included by default when no explicit filter is given.
+    default_species: list[str] = field(default_factory=lambda: ["dog"])
 
     @property
     def paw_names(self) -> list[str]:
@@ -26,10 +32,28 @@ class DatasetSpec:
     def num_keypoints(self) -> int:
         return len(self.keypoint_names)
 
+    def category_ids(self, species: list[str]) -> list[int] | None:
+        """
+        Return COCO category IDs for the requested species list.
+        Returns None for YOLO datasets (no filtering needed).
+        Raises ValueError for unknown species names.
+        """
+        if not self.species_map:
+            return None
+        ids: list[int] = []
+        for s in species:
+            if s not in self.species_map:
+                raise ValueError(
+                    f"Species '{s}' not available in dataset '{self.name}'. "
+                    f"Available: {list(self.species_map)}"
+                )
+            ids.append(self.species_map[s])
+        return ids
+
 
 # ── dog-pose-ultralytics ──────────────────────────────────────────────────────
-# 8,476 images, 24 keypoints, dog-only. Roboflow Universe version is the
-# default download; direct Ultralytics URL is the fallback.
+# 8,476 images, 24 keypoints, dog-only. No species filtering needed.
+# Roboflow Universe version is the default download; direct URL is the fallback.
 
 _DOG_POSE_ULTRALYTICS = DatasetSpec(
     name="dog-pose-ultralytics",
@@ -38,6 +62,8 @@ _DOG_POSE_ULTRALYTICS = DatasetSpec(
     roboflow_workspace="",   # set via ROBOFLOW_WORKSPACE env var or .env
     roboflow_project="",     # set via ROBOFLOW_PROJECT env var or .env
     roboflow_version=1,
+    species_map={},          # single-species dataset, no filtering
+    default_species=["dog"],
     keypoint_names=[
         "nose",                  # 0
         "left_eye",              # 1
@@ -77,11 +103,36 @@ _DOG_POSE_ULTRALYTICS = DatasetSpec(
 # ── AP-10K ───────────────────────────────────────────────────────────────────
 # 10,015 images, 17 keypoints, 54 animal species. COCO JSON format.
 # Source: https://github.com/AlexTheBad/AP-10K
+#
+# Category IDs — verify against annotations/ap10k-train-split1.json before use:
+#   run: python -c "import json; d=json.load(open('annotations/ap10k-train-split1.json'));
+#                   print({c['name']: c['id'] for c in d['categories']})"
 
 _AP10K = DatasetSpec(
     name="ap10k",
     source_format="coco",
     url="https://github.com/AlexTheBad/AP-10K/releases/download/v1.0/ap-10k.zip",
+    species_map={
+        # Domestic
+        "dog":    1,   # verify
+        "cat":    2,   # verify
+        "horse":  3,   # verify
+        "cow":    4,   # verify
+        "sheep":  5,   # verify
+        # Wildlife (subset — AP-10K has 54 total; add more as needed)
+        "wolf":   6,   # verify
+        "fox":    7,   # verify
+        "lion":   8,   # verify
+        "tiger":  9,   # verify
+        "cheetah": 10, # verify
+        "leopard": 11, # verify
+        "bear":   12,  # verify
+        "zebra":  13,  # verify
+        "elephant": 14, # verify
+        "giraffe": 15, # verify
+        "deer":   16,  # verify
+    },
+    default_species=["dog"],
     keypoint_names=[
         "nose",                    # 0
         "left_eye",                # 1
@@ -103,26 +154,38 @@ _AP10K = DatasetSpec(
     ],
     paw_indices=[9, 10, 15, 16],
     skeleton_edges=[
-        (0, 1), (0, 2), (1, 3), (2, 4),        # head
-        (5, 6),                                  # shoulders
-        (5, 7), (7, 9),                          # left front leg
-        (6, 8), (8, 10),                         # right front leg
-        (11, 12),                                # hips
-        (11, 13), (13, 15),                      # left back leg
-        (12, 14), (14, 16),                      # right back leg
-        (5, 11), (6, 12),                        # spine (approx)
+        (0, 1), (0, 2), (1, 3), (2, 4),
+        (5, 6),
+        (5, 7), (7, 9),
+        (6, 8), (8, 10),
+        (11, 12),
+        (11, 13), (13, 15),
+        (12, 14), (14, 16),
+        (5, 11), (6, 12),
     ],
 )
 
 # ── Animal Pose Dataset (COCO-Animals) ───────────────────────────────────────
-# ~5,000 images, 20 keypoints, 5 species (dog, cat, horse, sheep, cow).
+# ~5,000 images, 20 keypoints, 5 species: dog, cat, horse, sheep, cow.
 # COCO JSON format.
 # Source: https://github.com/noahcao/animal-pose-dataset
+#
+# Category IDs — verify against the annotation JSON before use:
+#   run: python -c "import json; d=json.load(open('train.json'));
+#                   print({c['name']: c['id'] for c in d['categories']})"
 
 _ANIMAL_POSE = DatasetSpec(
     name="animal-pose",
     source_format="coco",
     url="https://github.com/noahcao/animal-pose-dataset/archive/refs/heads/master.zip",
+    species_map={
+        "dog":   1,  # verify
+        "cat":   2,  # verify
+        "horse": 3,  # verify
+        "sheep": 4,  # verify
+        "cow":   5,  # verify
+    },
+    default_species=["dog"],
     keypoint_names=[
         "left_eye",              # 0
         "right_eye",             # 1
@@ -144,8 +207,6 @@ _ANIMAL_POSE = DatasetSpec(
         "left_back_knee",        # 17
         "left_back_hip",         # 18
         "right_back_paw",        # 19
-        # Note: right back leg shares indices 17-18 with left in this schema
-        # (dataset uses a 20-kp symmetric layout; adjust if source differs)
     ],
     paw_indices=[8, 12, 16, 19],
     skeleton_edges=[
@@ -164,6 +225,7 @@ REGISTRY: dict[str, DatasetSpec] = {
 }
 
 DEFAULT_DATASET = "dog-pose-ultralytics"
+DEFAULT_SPECIES = ["dog"]
 
 
 def get_spec(name: str) -> DatasetSpec:

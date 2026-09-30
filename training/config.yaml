@@ -1,5 +1,9 @@
 dataset: dog-pose-ultralytics   # one of: dog-pose-ultralytics, ap10k, animal-pose
 dataset_root: datasets           # base dir; actual data goes in {dataset_root}/{dataset}/
+# Species to include during dataset preparation. Default is dog only.
+# For ap10k or animal-pose you can extend this list, e.g.: [dog, cat, horse]
+# Ignored for dog-pose-ultralytics (already dog-only).
+species: [dog]
 
 output_dir: checkpoints/rfdetr_dog_pose
 

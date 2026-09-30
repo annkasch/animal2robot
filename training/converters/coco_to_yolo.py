@@ -28,7 +28,7 @@ def convert(
     images_dir: Path,
     output_dir: Path,
     split: str = "train",
-    category_id: int | None = None,
+    category_ids: list[int] | None = None,
 ) -> None:
     """
     Convert one COCO JSON split to YOLO keypoint .txt files.
@@ -45,11 +45,14 @@ def convert(
             output_dir/{split}/labels/
     split : str
         "train" or "val"
-    category_id : int | None
-        If set, only convert annotations for this category. Otherwise converts all.
+    category_ids : list[int] | None
+        If set, only convert annotations whose category_id is in this list.
+        If None, converts all categories.
     """
     with open(coco_json) as f:
         data = json.load(f)
+
+    allowed: set[int] | None = set(category_ids) if category_ids else None
 
     # Build lookup tables
     images_meta: dict[int, dict] = {img["id"]: img for img in data["images"]}
@@ -58,7 +61,7 @@ def convert(
     for ann in data["annotations"]:
         if ann.get("num_keypoints", 0) == 0:
             continue
-        if category_id is not None and ann["category_id"] != category_id:
+        if allowed is not None and ann["category_id"] not in allowed:
             continue
         ann_by_image.setdefault(ann["image_id"], []).append(ann)
 
@@ -125,8 +128,8 @@ def convert_splits(
     val_json: Path,
     images_dir: Path,
     output_dir: Path,
-    category_id: int | None = None,
+    category_ids: list[int] | None = None,
 ) -> None:
     for split, json_path in [("train", train_json), ("val", val_json)]:
         print(f"Converting {split} split from {json_path.name} ...")
-        convert(json_path, images_dir, output_dir, split=split, category_id=category_id)
+        convert(json_path, images_dir, output_dir, split=split, category_ids=category_ids)

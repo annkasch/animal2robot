@@ -21,26 +21,42 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-from animal2robot.datasets import DatasetSpec, get_spec, DEFAULT_DATASET
+from animal2robot.datasets import DatasetSpec, get_spec, DEFAULT_DATASET, REGISTRY
 
 
 def is_present(root: Path, spec: DatasetSpec) -> bool:
     return (root / "train" / "images").exists()
 
 
-def ensure_present(root: Path, spec: DatasetSpec, roboflow_api_key: str = "") -> None:
-    """Download and prepare the dataset if not already present."""
+def ensure_present(
+    root: Path,
+    spec: DatasetSpec,
+    species: list[str] | None = None,
+    roboflow_api_key: str = "",
+) -> None:
+    """
+    Download and prepare the dataset if not already present.
+
+    Parameters
+    ----------
+    species : list[str] | None
+        Species to include. Falls back to spec.default_species when None.
+        Ignored for YOLO datasets (already single-species or pre-filtered).
+    """
+    selected = species or spec.default_species
+
     if is_present(root, spec):
         print(f"Dataset '{spec.name}' already present at {root}")
         return
 
-    print(f"Dataset '{spec.name}' not found. Downloading...")
+    print(f"Dataset '{spec.name}' not found — downloading (species: {selected}) ...")
     root.mkdir(parents=True, exist_ok=True)
 
     if spec.name == "dog-pose-ultralytics":
         _download_dog_pose(root, spec, roboflow_api_key)
     elif spec.source_format == "coco":
-        _download_coco_dataset(root, spec)
+        category_ids = spec.category_ids(selected)
+        _download_coco_dataset(root, spec, category_ids)
     else:
         _download_yolo_zip(root, spec)
 
@@ -134,7 +150,7 @@ def _restructure_yolo(src: Path, dst: Path) -> None:
             shutil.copy(str(y), dst / "data.yaml")
 
 
-def _download_coco_dataset(root: Path, spec: DatasetSpec) -> None:
+def _download_coco_dataset(root: Path, spec: DatasetSpec, category_ids: list[int] | None = None) -> None:
     from training.converters.coco_to_yolo import convert_splits
 
     zip_path = root / f"{spec.name}.zip"
@@ -150,7 +166,7 @@ def _download_coco_dataset(root: Path, spec: DatasetSpec) -> None:
 
     print("Converting COCO → YOLO ...")
     train_json, val_json, images_dir = _find_coco_structure(extract_dir, spec.name)
-    convert_splits(train_json, val_json, images_dir, root)
+    convert_splits(train_json, val_json, images_dir, root, category_ids=category_ids)
     shutil.rmtree(extract_dir, ignore_errors=True)
     _write_data_yaml(root, spec)
     _verify(root)
@@ -203,10 +219,15 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Prepare a dataset for RF-DETR training")
-    parser.add_argument("--dataset", default=DEFAULT_DATASET, choices=["dog-pose-ultralytics", "ap10k", "animal-pose"])
+    parser.add_argument("--dataset", default=DEFAULT_DATASET, choices=list(REGISTRY))
     parser.add_argument("--root", default="datasets")
+    parser.add_argument(
+        "--species", nargs="+", default=None,
+        help="Species to include (default: dataset's default_species). "
+             "E.g. --species dog cat horse",
+    )
     args = parser.parse_args()
 
     spec = get_spec(args.dataset)
-    ensure_present(Path(args.root) / spec.name, spec)
+    ensure_present(Path(args.root) / spec.name, spec, species=args.species)
     print(f"\nReady: {(Path(args.root) / spec.name).resolve()}")
