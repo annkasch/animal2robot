@@ -1,0 +1,8 @@
+dataset_dir: datasets
+output_dir: checkpoints/rfdetr_dog_pose
+
+epochs: 50
+batch_size: 8
+resolution: 576
+lr: 1.0e-4
+grad_accum_steps: 1

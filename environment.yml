@@ -1,0 +1,28 @@
+name: animal2robot
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - pytorch>=2.3
+  - torchvision
+  - pytorch-cuda=12.1   # adjust to match your cluster's CUDA version
+  - cudatoolkit
+  - pip:
+      - rfdetr[train,visual]
+      - fastapi>=0.111
+      - uvicorn[standard]>=0.29
+      - python-multipart>=0.0.9
+      - pydantic>=2.0
+      - pydantic-settings>=2.0
+      - opencv-python-headless>=4.9
+      - numpy>=1.26
+      - pandas>=2.2
+      - scipy>=1.13
+      - pyyaml
+      - pytest>=8
+      - httpx>=0.27
+      - inference-sdk   # optional: only needed for RoboflowBackend
