@@ -6,14 +6,15 @@ from pathlib import Path
 import cv2
 import pandas as pd
 
+from animal2robot.datasets import DatasetSpec, get_spec, DEFAULT_DATASET
 from animal2robot.inference.base import InferenceBackend
-from animal2robot.keypoints import KEYPOINT_NAMES
 
 
 def video_to_keypoints(
     video_path: str | Path,
     backend: InferenceBackend,
     conf_threshold: float = 0.3,
+    spec: DatasetSpec | None = None,
 ) -> tuple[pd.DataFrame, dict]:
     """
     Run per-frame pose inference on a video.
@@ -25,6 +26,10 @@ def video_to_keypoints(
     meta : dict
         fps, width, height, total_frames
     """
+    if spec is None:
+        spec = get_spec(DEFAULT_DATASET)
+    keypoint_names = spec.keypoint_names
+
     cap = cv2.VideoCapture(str(video_path))
     if not cap.isOpened():
         raise ValueError(f"Cannot open video: {video_path}")
@@ -56,7 +61,7 @@ def video_to_keypoints(
                         {
                             "frame": frame_id,
                             "timestamp": round(frame_id / fps, 4),
-                            "keypoint": KEYPOINT_NAMES[i] if i < len(KEYPOINT_NAMES) else f"kp_{i}",
+                            "keypoint": keypoint_names[i] if i < len(keypoint_names) else f"kp_{i}",
                             "x": kp.x,
                             "y": kp.y,
                             "confidence": round(kp.confidence, 4),

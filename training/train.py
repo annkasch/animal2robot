@@ -1,5 +1,5 @@
 """
-Training entrypoint for RF-DETR Keypoint on the dog-pose dataset.
+Training entrypoint for RF-DETR Keypoint.
 Launched via torchrun for single- or multi-GPU training:
 
     torchrun --nproc_per_node=NUM_GPUS training/train.py --config training/config.yaml
@@ -19,11 +19,18 @@ def main():
 
     cfg = yaml.safe_load(Path(args.config).read_text())
 
+    from animal2robot.datasets import get_spec
+    from training.dataset import ensure_present
+
+    spec = get_spec(cfg["dataset"])
+    dataset_dir = Path(cfg["dataset_root"]) / spec.name
+    ensure_present(dataset_dir, spec)
+
     from rfdetr import RFDETRKeypointPreview
 
     model = RFDETRKeypointPreview()
     model.train(
-        dataset_dir=cfg["dataset_dir"],
+        dataset_dir=str(dataset_dir),
         epochs=cfg["epochs"],
         batch_size=cfg["batch_size"],
         resolution=cfg["resolution"],

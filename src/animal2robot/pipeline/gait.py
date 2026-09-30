@@ -5,12 +5,15 @@ import pandas as pd
 from scipy.signal import savgol_filter
 from scipy.signal import correlate
 
-from animal2robot.keypoints import KEYPOINT_NAMES, PAW_NAMES
-
-_BODY_CENTER_KPS = ("withers", "tail_base")
+from animal2robot.datasets import DatasetSpec, get_spec, DEFAULT_DATASET
 
 
-def keypoints_to_gait(df: pd.DataFrame, video_meta: dict, conf_threshold: float = 0.3) -> dict:
+def keypoints_to_gait(
+    df: pd.DataFrame,
+    video_meta: dict,
+    conf_threshold: float = 0.3,
+    spec: DatasetSpec | None = None,
+) -> dict:
     """
     Convert a per-frame keypoints DataFrame to a structured gait representation.
 
@@ -28,6 +31,11 @@ def keypoints_to_gait(df: pd.DataFrame, video_meta: dict, conf_threshold: float 
     dict with keys:
         paw_trajectories, stride_frequency_hz, inter_limb_phase, body_center_trajectory
     """
+    if spec is None:
+        spec = get_spec(DEFAULT_DATASET)
+
+    paw_names = spec.paw_names
+
     fps = video_meta["fps"]
     total_frames = video_meta["total_frames"]
     frame_index = np.arange(total_frames)
@@ -61,7 +69,7 @@ def keypoints_to_gait(df: pd.DataFrame, video_meta: dict, conf_threshold: float 
     paw_trajectories: dict[str, list] = {}
     paw_y_signals: dict[str, np.ndarray] = {}
 
-    for paw in PAW_NAMES:
+    for paw in paw_names:
         raw_y = _time_series(paw, "y")
         raw_x = _time_series(paw, "x")
 
@@ -82,8 +90,9 @@ def keypoints_to_gait(df: pd.DataFrame, video_meta: dict, conf_threshold: float 
             for t, x, y in zip(timestamps, norm_x, smooth_y)
         ]
 
-    stride_frequency_hz = _stride_frequency(paw_y_signals["left_front_paw"], fps)
-    inter_limb_phase = _inter_limb_phase(paw_y_signals, stride_frequency_hz, fps)
+    reference_paw = paw_names[0]
+    stride_frequency_hz = _stride_frequency(paw_y_signals[reference_paw], fps)
+    inter_limb_phase = _inter_limb_phase(paw_y_signals, stride_frequency_hz, fps, reference_paw)
 
     return {
         "stride_frequency_hz": round(stride_frequency_hz, 3),
@@ -131,13 +140,14 @@ def _inter_limb_phase(
     paw_signals: dict[str, np.ndarray],
     stride_freq: float,
     fps: float,
+    reference_paw: str = "left_front_paw",
 ) -> dict[str, float]:
-    reference = paw_signals["left_front_paw"]
+    reference = paw_signals[reference_paw]
     stride_samples = (fps / stride_freq) if stride_freq > 0 else len(reference)
     result: dict[str, float] = {}
 
     for paw, signal in paw_signals.items():
-        if paw == "left_front_paw":
+        if paw == reference_paw:
             result[paw] = 0.0
             continue
         corr = correlate(reference - reference.mean(), signal - signal.mean(), mode="full")

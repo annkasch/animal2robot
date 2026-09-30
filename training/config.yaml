@@ -1,4 +1,6 @@
-dataset_dir: datasets
+dataset: dog-pose-ultralytics   # one of: dog-pose-ultralytics, ap10k, animal-pose
+dataset_root: datasets           # base dir; actual data goes in {dataset_root}/{dataset}/
+
 output_dir: checkpoints/rfdetr_dog_pose
 
 epochs: 50

@@ -3,8 +3,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from animal2robot.keypoints import KEYPOINT_NAMES, PAW_NAMES
+from animal2robot.datasets import get_spec, DEFAULT_DATASET
 from animal2robot.pipeline.gait import keypoints_to_gait
+
+_spec = get_spec(DEFAULT_DATASET)
+KEYPOINT_NAMES = _spec.keypoint_names
+PAW_NAMES = _spec.paw_names
 
 
 def _synthetic_df(fps: float = 30.0, duration: float = 5.0, stride_hz: float = 2.0) -> pd.DataFrame:

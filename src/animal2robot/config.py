@@ -4,18 +4,25 @@ from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from animal2robot.datasets import DEFAULT_DATASET
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     INFERENCE_BACKEND: Literal["local", "roboflow"] = "roboflow"
+    DATASET: str = DEFAULT_DATASET
 
     # Local backend
     LOCAL_CHECKPOINT: str = ""
 
-    # Roboflow backend
+    # Roboflow inference backend
     ROBOFLOW_API_KEY: str = ""
     ROBOFLOW_MODEL_ID: str = ""
+
+    # Roboflow dataset download (used by training/dataset.py)
+    ROBOFLOW_WORKSPACE: str = ""
+    ROBOFLOW_PROJECT: str = ""
 
     CONF_THRESHOLD: float = 0.3
 
